@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>PDP ExtraHours Report</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>PDP ExtraHours Report</h1>
+    <p>Report generated on 12-Sep-2023 at 11:31:42 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Summary</h2>This report is generated as part of pdp automation ExtraHours on 2023-09-12 11:31:42.633246
+    <p>17 tests ran in 46.64 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">10 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">7 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_integrity_department_name</td>
+          <td class="col-duration">31.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_integrity_department_name():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table integrity check for department_name\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;department_name not in (select distinct skillName<br/>                                                                                  from delta_silver.skills)&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:118: AssertionError[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:97 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for department_name
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE department_name not in (select distinct skillName 
+                                                                              from delta_silver.skills) limit 1
+validations.py root INFO:69 	Table data Count: 14832
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;8976a6ab-8995-42d4-be55-9753be62e37d&#x27;, &#x27;Store_Number&#x27;: 6210, &#x27;Store_Name&#x27;: &#x27;Hornsea Superstore&#x27;, &#x27;Skills_ID&#x27;: 1000131, &#x27;Department_Name&#x27;: &#x27;Meat&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2023, 7, 28), &#x27;Published_Shifts&#x27;: 1, &#x27;Claimed_Shifts&#x27;: 0, &#x27;Unclaimed_shifts&#x27;: 1, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 18, 18, 13, 54, 618000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x0000021F26D00670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_validity_skills_id</td>
+          <td class="col-duration">31.80</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_validity_skills_id():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table integrity check for skills_id/department_id\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;length(Skills_ID)!=7&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:90: AssertionError[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:70 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for skills_id/department_id
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE length(Skills_ID)!=7 limit 1
+validations.py root INFO:69 	Table data Count: 1
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;90bb7545-8223-468f-bb5e-7a998ba04d04&#x27;, &#x27;Store_Number&#x27;: 2544, &#x27;Store_Name&#x27;: &#x27;Finchley Superstore&#x27;, &#x27;Skills_ID&#x27;: 10001, &#x27;Department_Name&#x27;: &#x27;NP&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2020, 7, 9), &#x27;Published_Shifts&#x27;: 1, &#x27;Claimed_Shifts&#x27;: 0, &#x27;Unclaimed_shifts&#x27;: 1, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 30, 10, 13, 12, 607000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x0000020E1C290670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_validity_department_name</td>
+          <td class="col-duration">26.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw5] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw5] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw5] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_validity_department_name():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table integrity check for department_name\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;length(department_name)&lt;1&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:172: AssertionError[gw5] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:152 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for department_name
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE length(department_name)&lt;1 limit 1
+validations.py root INFO:69 	Table data Count: 999
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;1e89c7dd-6fb8-4fb1-9539-9510e54e151a&#x27;, &#x27;Store_Number&#x27;: 2865, &#x27;Store_Name&#x27;: &#x27;Macclesfield Metro&#x27;, &#x27;Skills_ID&#x27;: 1000131, &#x27;Department_Name&#x27;: &#x27;&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2023, 8, 24), &#x27;Published_Shifts&#x27;: 1, &#x27;Claimed_Shifts&#x27;: 1, &#x27;Unclaimed_shifts&#x27;: 0, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 9, 4, 13, 34, 27, 43000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x000001665A500670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_validity_location_uuid</td>
+          <td class="col-duration">34.63</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw10] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw10] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw10] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_validity_location_uuid():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table null check for store_id/location_uuid\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;length(location_uuid)!=36&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:309: AssertionError[gw10] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:289 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for store_id/location_uuid
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE length(location_uuid)!=36 limit 1
+validations.py root INFO:69 	Table data Count: 2
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;83e8a76c-0c5f-41e5-a15d-b388752b82788&#x27;, &#x27;Store_Number&#x27;: 0, &#x27;Store_Name&#x27;: &#x27;NP&#x27;, &#x27;Skills_ID&#x27;: 1000103, &#x27;Department_Name&#x27;: &#x27;Bread &amp; Cake&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2020, 7, 9), &#x27;Published_Shifts&#x27;: 1, &#x27;Claimed_Shifts&#x27;: 0, &#x27;Unclaimed_shifts&#x27;: 1, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 30, 10, 13, 12, 607000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x00000203A3230670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_location_uuid_null</td>
+          <td class="col-duration">34.23</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw9] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw9] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw9] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_location_uuid_null():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table null check for store_id/location_uuid\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;location_uuid is null&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:282: AssertionError[gw9] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:262 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for store_id/location_uuid
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE location_uuid is null limit 1
+validations.py root INFO:69 	Table data Count: 1
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: None, &#x27;Store_Number&#x27;: 0, &#x27;Store_Name&#x27;: &#x27;NP&#x27;, &#x27;Skills_ID&#x27;: 1000110, &#x27;Department_Name&#x27;: &#x27;Clothing&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2020, 7, 9), &#x27;Published_Shifts&#x27;: 1, &#x27;Claimed_Shifts&#x27;: 0, &#x27;Unclaimed_shifts&#x27;: 1, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 30, 10, 13, 12, 607000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x00000173C0CD0670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_integrity_location_uuid</td>
+          <td class="col-duration">30.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw8] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw8] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw8] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_integrity_location_uuid():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table integrity check for store_id/location_uuid\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;location_uuid not in (select distinct locationUuid<br/>                                                      from delta_silver.location)&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:255: AssertionError[gw8] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:234 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for store_id/location_uuid
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE location_uuid not in (select distinct locationUuid  
+                                                  from delta_silver.location) limit 1
+validations.py root INFO:69 	Table data Count: 18603
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;d5667748-3f8b-4e21-a656-e9c4a4de92b1&#x27;, &#x27;Store_Number&#x27;: 0, &#x27;Store_Name&#x27;: &#x27;NP&#x27;, &#x27;Skills_ID&#x27;: 1000176, &#x27;Department_Name&#x27;: &#x27;Express Shopfloor&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2023, 7, 28), &#x27;Published_Shifts&#x27;: 2, &#x27;Claimed_Shifts&#x27;: 2, &#x27;Unclaimed_shifts&#x27;: 0, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 18, 18, 13, 54, 618000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x00000125FD0C0670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_validity_store_number</td>
+          <td class="col-duration">26.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.dqcheck<br/>    @pytest.mark.validation<br/>    @pytest.mark.gold<br/>    def test_pdp_gold_table_validity_store_number():<br/>        logging.info(&quot;&quot;&quot;\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours gold table Validity check for store_number/StoreNumber\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>    <br/>        config[&quot;file&quot;] = existing_data_file<br/>    <br/>        config[&quot;pdp_flow&quot;] = [&quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;input_count&quot;] = 0<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;gold&quot;]<br/>        config[&quot;validations&quot;][&quot;bronze_silver_run_id&quot;] = existing_bronze_silver_run_id<br/>    <br/>        config[&quot;validations&quot;][&quot;gold&quot;] = [{&quot;db_table&quot;: &quot;delta_gold.extrahours&quot;,<br/>                                          &quot;where&quot;: &quot;&quot;&quot;length(store_number)!=4&quot;&quot;&quot;,<br/>                                          &quot;type&quot;: [{&quot;name&quot;: &quot;count&quot;, &quot;query&quot;: None}]}]<br/>    <br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>    <br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_automation_dq_checks.py:475: AssertionError[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:455 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table Validity check for store_number/StoreNumber
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE length(store_number)!=4 limit 1
+validations.py root INFO:69 	Table data Count: 18969
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:75 	Count Not Matched
+validations.py root INFO:76 	Getting sample data
+validations.py root INFO:81 	Table sample data: {&#x27;Location_UUID&#x27;: &#x27;d5667748-3f8b-4e21-a656-e9c4a4de92b1&#x27;, &#x27;Store_Number&#x27;: 0, &#x27;Store_Name&#x27;: &#x27;NP&#x27;, &#x27;Skills_ID&#x27;: 1000176, &#x27;Department_Name&#x27;: &#x27;Express Shopfloor&#x27;, &#x27;Extra_Hours_date&#x27;: datetime.date(2023, 7, 28), &#x27;Published_Shifts&#x27;: 2, &#x27;Claimed_Shifts&#x27;: 2, &#x27;Unclaimed_shifts&#x27;: 0, &#x27;Published_unclaimed_manually_assigned_shifts&#x27;: 0, &#x27;Unpublished_manually_assigned_shifts&#x27;: 0, &#x27;MD_CREATED_DTM&#x27;: datetime.datetime(2023, 8, 18, 18, 13, 54, 618000, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x000001613D270670&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_department_name_null</td>
+          <td class="col-duration">9.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw4] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:125 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for department_name
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE department_name is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_integrity_store_name</td>
+          <td class="col-duration">30.84</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw11] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw11] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw11] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw11] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:316 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for store_name/LocationInternalname
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE store_name not in (select 
+                                       distinct LocationInternalname  
+                                       from delta_silver.location) limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_extra_hours_date_null</td>
+          <td class="col-duration">11.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw6] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw6] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw6] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw6] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:179 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for extra_hours_date
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE Extra_Hours_date is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_validity_extra_hours_date</td>
+          <td class="col-duration">11.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw7] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw7] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw7] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw7] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:206 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for extra_hours_date
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE date(Extra_Hours_date) is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_integrity_skills_id</td>
+          <td class="col-duration">34.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:15 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for skills_id/department_id
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE Skills_ID not in (select distinct skillCode 
+                                                                              from delta_silver.skills) limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_skills_id_null</td>
+          <td class="col-duration">9.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:43 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for skills_id/department_id
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE Skills_ID is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_uniqueness_store_name</td>
+          <td class="col-duration">2.74</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw1] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:372 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table uniqueness check for store_name/LocationInternalname
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE cast(store_name as string) is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_store_number_null</td>
+          <td class="col-duration">1.29</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw3] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:428 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for store_number/StoreNumber
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE store_number is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_integrity_store_number</td>
+          <td class="col-duration">4.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw2] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:399 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table integrity check for store_number/StoreNumber
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE store_number not in (select 
+                                       distinct StoreNumber  
+                                       from delta_silver.location) limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_pdp_automation_dq_checks.py::test_pdp_gold_table_store_name_null</td>
+          <td class="col-duration">1.63</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_automation_dq_checks.py root INFO:345 	---------------Test Description---------------
+    
+	Validate ExtraHours gold table null check for store_name/LocationInternalname
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_gold.extrahours WHERE store_name is null limit 1
+validations.py root INFO:69 	Table data Count: 0
+validations.py root INFO:70 	Input Data Count: 0
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody></table></body></html>

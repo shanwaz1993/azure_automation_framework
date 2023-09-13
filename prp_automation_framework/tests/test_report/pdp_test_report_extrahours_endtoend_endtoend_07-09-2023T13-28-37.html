@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>PDP ExtraHours Report</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>PDP ExtraHours Report</h1>
+    <p>Report generated on 07-Sep-2023 at 14:13:23 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Summary</h2>This report is generated as part of pdp automation ExtraHours on 2023-09-07 14:13:23.193417
+    <p>1 tests ran in 2685.72 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_pdp_flow_extrahours.py::test_pdp_flow_all</td>
+          <td class="col-duration">2678.98</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/>[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/><br/>    @pytest.mark.endtoend<br/>    # @pytest.mark.regression<br/>    def test_pdp_flow_all():<br/>        logging.info(&quot;&quot;&quot;\n\t---------------Test Description---------------<br/>        \n\tValidate ExtraHours PDP Flow, data_generator,upload_to_azure,trigger_adf_pipeline,validations\n&quot;&quot;&quot;)<br/>    <br/>        config_file = &quot;{file_prefix}_config.json&quot;.format(file_prefix=file_prefix)<br/>        config = read_config(base_folder=os.path.dirname(__file__)+&quot;..\\..\\&quot;,<br/>                             config_file=config_file)<br/>        random_number = random.randint(100, 999)<br/>        config[&quot;file&quot;] = &quot;{file_prefix}_{dt_nodash}-{random_number}.csv&quot;.format(file_prefix=file_prefix,<br/>                                                                                dt_nodash=datetime.now().strftime(&quot;%Y%m%d&quot;),<br/>                                                                                random_number=random_number)<br/>        config[&quot;pdp_flow&quot;] = [&quot;data_generator&quot;, &quot;upload_to_azure&quot;,<br/>                              &quot;trigger_adf_pipeline&quot;, &quot;validations&quot;]<br/>        config[&quot;validations&quot;][&quot;validation_flow&quot;] = [&quot;bronze&quot;, &quot;silver&quot;, &quot;gold&quot;]<br/>        status = PdpAutomation(config=config).run_pdp_flow()<br/>&gt;       assert status == 0<br/><span class="error">E       assert 1 == 0</span><br/><br/>test_pdp_flow_extrahours.py:26: AssertionError[gw0] win32 -- Python 3.9.13 C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\Scripts\python.exe<br/> -------------------------------Captured log call-------------------------------- <br/>test_pdp_flow_extrahours.py root INFO:12 
+	---------------Test Description---------------
+    
+	Validate ExtraHours PDP Flow, data_generator,upload_to_azure,trigger_adf_pipeline,validations
+
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK DATA_GENERATOR STARTED RUNNING
+data_generator.py root INFO:178 	Data Saved in File : PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv
+pdp_framework.py root INFO:58 	TASK DATA_GENERATOR  COMPLETED
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK UPLOAD_TO_AZURE STARTED RUNNING
+upload_to_azure.py root INFO:34 	Azure Container- pdrpdata
+upload_to_azure.py root INFO:45 	Source file_path  C:\Users\INE12405137\PycharmProjects\autmation_framework\pdp_automation_framework\output_data\PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv
+upload_to_azure.py root INFO:46 	Blob file_path  /landingzone/raw/PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv
+upload_to_azure.py root INFO:54 	File has been successfully uploaded to the landing zone folder.
+upload_to_azure.py root INFO:80 File exist in Encrypted is  False  Location /landingzone/rawencrypted/PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv
+upload_to_azure.py root INFO:84 File exist in Encrypted is False Re-Checking after 5 sec
+upload_to_azure.py root INFO:84 File exist in Encrypted is False Re-Checking after 5 sec
+upload_to_azure.py root INFO:84 File exist in Encrypted is False Re-Checking after 5 sec
+upload_to_azure.py root INFO:89 File Moved to Encrypted folder
+upload_to_azure.py root INFO:95 File exist in processed is  False or error is False 
+upload_to_azure.py root INFO:98 File exist in processed is  False or error is False Re-Checking after 30 sec
+upload_to_azure.py root INFO:104 	File moved to processed folder. Location /landingzone/processed/PRP/ExtraHoursAPI/ExtraHours/PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv
+pdp_framework.py root INFO:58 	TASK UPLOAD_TO_AZURE  COMPLETED
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK TRIGGER_ADF_PIPELINE STARTED RUNNING
+trigger_adf_pipeline.py root INFO:27 	Triggering Pipeline pl_master_orchestrator_r1dm
+trigger_adf_pipeline.py root INFO:34 	Pipeline run triggered. Run ID: c2d89c3a-4d54-11ee-bd34-bcf4d42f600c
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: Succeeded 
+trigger_adf_pipeline.py root INFO:27 	Triggering Pipeline pl_master_gold_with_period
+trigger_adf_pipeline.py root INFO:34 	Pipeline run triggered. Run ID: 52ed9286-4d58-11ee-acd8-bcf4d42f600c
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: InProgress 
+trigger_adf_pipeline.py root INFO:51 	Re-Checking Status after 60s
+trigger_adf_pipeline.py root INFO:41 	Pipeline run status: Succeeded 
+trigger_adf_pipeline.py root INFO:63 Passing x_comm values to config {&#x27;bronze_silver_run_id&#x27;: &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27;, &#x27;base_html_content&#x27;: &#x27;&lt;!DOCTYPE html&gt;\n&lt;html lang=&quot;en&quot;&gt;\n&lt;head&gt;\n    &lt;style&gt;\ntable, th, td {\n  border: 1px solid black;\n}\n&lt;/style&gt;\n    &lt;meta charset=&quot;UTF-8&quot;&gt;\n    &lt;title&gt;Title&lt;/title&gt;\n&lt;/head&gt;\n&lt;body&gt;\n&lt;h1&gt;PDP Automation Report&lt;/h1&gt;\n&lt;p&gt;This is the PDP Automation report generated after the execution of PDP Automation Framework,\n    Please find the report below&lt;/p&gt;\n&lt;h2&gt;Data Generator &lt;/h2&gt;\n&lt;p&gt;Data generator Details&lt;/p&gt;\n&lt;table style=&quot;width:100%&quot;&gt;\n  &lt;tr&gt;\n    &lt;th&gt;Details&lt;/th&gt;\n    &lt;th&gt;Value&lt;/th&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;File Name&lt;/td&gt;\n    &lt;td&gt;PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Generated Count&lt;/td&gt;\n    &lt;td&gt;100&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Column Count&lt;/td&gt;\n    &lt;td&gt;11&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Column Names&lt;/td&gt;\n    &lt;td&gt;[\&#x27;extraHourId\&#x27;, \&#x27;status\&#x27;, \&#x27;locationUuid\&#x27;, \&#x27;departmentId\&#x27;, \&#x27;assignedTo\&#x27;, \&#x27;startDateTime\&#x27;, \&#x27;endDateTime\&#x27;, \&#x27;updatedTimestamp\&#x27;, \&#x27;updatedBy\&#x27;, \&#x27;createdTimestamp\&#x27;, \&#x27;publishedTimestamp\&#x27;]&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Status&lt;/td&gt;\n    &lt;td&gt;SUCCESS&lt;/td&gt;\n  &lt;/tr&gt;\n&lt;/table&gt;\n\n&lt;h2&gt;Upload File to Azure &lt;/h2&gt;\n&lt;p&gt;Azure Upload file details&lt;/p&gt;\n&lt;table style=&quot;width:100%&quot;&gt;\n  &lt;tr&gt;\n    &lt;th&gt;Details&lt;/th&gt;\n    &lt;th&gt;Value&lt;/th&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Source File &lt;/td&gt;\n    &lt;td&gt;PRP_ExtraHoursAPI_ExtraHours_20230907-935.csv&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Azure Path&lt;/td&gt;\n    &lt;td&gt;&lt;azure.storage.blob._blob_client.BlobClient object at 0x000002731606FE20&gt;&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Status&lt;/td&gt;\n    &lt;td&gt;SUCCESS&lt;/td&gt;\n  &lt;/tr&gt;\n&lt;/table&gt;\n\n&lt;h2&gt;Datafactory Pipeline &lt;/h2&gt;\n&lt;p&gt;Triggering datafactory pipeline details&lt;/p&gt;\n&lt;table style=&quot;width:100%&quot;&gt;\n  &lt;tr&gt;\n    &lt;th&gt;Details&lt;/th&gt;\n    &lt;th&gt;Value&lt;/th&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;ADF Pipeline Name&lt;/td&gt;\n    &lt;td&gt;pl_master_orchestrator_r1dm&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;ADF Run Id&lt;/td&gt;\n    &lt;td&gt;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Status&lt;/td&gt;\n    &lt;td&gt;Succeeded&lt;/td&gt;\n  &lt;/tr&gt;\n&lt;/table&gt;\n\n&lt;h2&gt;Datafactory Pipeline &lt;/h2&gt;\n&lt;p&gt;Triggering datafactory pipeline details&lt;/p&gt;\n&lt;table style=&quot;width:100%&quot;&gt;\n  &lt;tr&gt;\n    &lt;th&gt;Details&lt;/th&gt;\n    &lt;th&gt;Value&lt;/th&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;ADF Pipeline Name&lt;/td&gt;\n    &lt;td&gt;pl_master_gold_with_period&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;ADF Run Id&lt;/td&gt;\n    &lt;td&gt;52ed9286-4d58-11ee-acd8-bcf4d42f600c&lt;/td&gt;\n  &lt;/tr&gt;\n  &lt;tr&gt;\n    &lt;td&gt;Status&lt;/td&gt;\n    &lt;td&gt;Succeeded&lt;/td&gt;\n  &lt;/tr&gt;\n&lt;/table&gt;\n\nadd_segment\n&lt;/body&gt;\n&lt;/html&gt;&#x27;, &#x27;gold_run_id&#x27;: &#x27;52ed9286-4d58-11ee-acd8-bcf4d42f600c&#x27;} and status 0
+pdp_framework.py root INFO:58 	TASK TRIGGER_ADF_PIPELINE  COMPLETED
+pdp_framework.py root INFO:55 
+	------------------------------------------
+pdp_framework.py root INFO:56 	TASK VALIDATIONS STARTED RUNNING
+validations.py root INFO:310 	Running Validation for  bronze
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_bronze.prp_extrahoursapi_extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 1
+validations.py root INFO:69 	Table data Count: 100
+validations.py root INFO:70 	Input Data Count: 100
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:115 	Input Query is: None
+validations.py root INFO:56 	Query Generated is: SELECT  *  FROM delta_bronze.prp_extrahoursapi_extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 200
+validations.py root INFO:151 
+	Data Matched
+validations.py root INFO:56 	Query Generated is: SELECT updatedTimestamp  FROM delta_bronze.prp_extrahoursapi_extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 1
+validations.py root INFO:177 date value  {&#x27;updatedTimestamp&#x27;: &#x27;2020-01-04T18:01:00.000&#x27;}
+validations.py root INFO:188 	date column updatedTimestamp value is 2020-01-04T18:01:00.000
+validations.py root INFO:191 	After formatting date value 2020-01-04T18:01:00.000
+validations.py root INFO:193 	Date Formate matched for column updatedTimestamp
+validations.py root INFO:56 	Query Generated is: SELECT MD_CREATED_DTM, MD_CHANGED_DTM, MD_CREATED_BY, MD_MODIFIED_BY, MD_SOURCE_NAME, MD_PLATFORM_NAME, MD_BATCH_ID, MD_KEY_HASH, MD_KEY_HASH, MD_KEY_HASH, MD_PIPELINE_NAME, MD_PIPELINE_NAME, MD_LOAD_DT  FROM delta_bronze.prp_extrahoursapi_extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 1
+validations.py root INFO:213 Cols Exist
+validations.py root INFO:313 	Completed Validation for bronze
+validations.py root INFO:310 	Running Validation for  silver
+validations.py root INFO:61 	Input Query is None
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_silver.extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 1
+validations.py root INFO:69 	Table data Count: 100
+validations.py root INFO:70 	Input Data Count: 100
+validations.py root INFO:72 	Count Matched
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count  FROM delta_silver.extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 20
+validations.py root INFO:56 	Query Generated is: SELECT COUNT(*) as count FROM (SELECT distinct extrahour_id, updated_timestamp  FROM delta_silver.extrahours 
+        WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27;) limit 20
+validations.py root INFO:99 	Table delta_silver.extrahours full data Count: 100
+validations.py root INFO:100 	Table delta_silver.extrahours distinct data Count: 100
+validations.py root INFO:103 	NO Duplicates Found
+validations.py root INFO:56 	Query Generated is: SELECT updated_timestamp  FROM delta_silver.extrahours WHERE MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27; limit 1
+validations.py root INFO:177 date value  {&#x27;updated_timestamp&#x27;: datetime.datetime(2019, 12, 31, 22, 0, tzinfo=&lt;StaticTzInfo &#x27;Etc/UTC&#x27;&gt;)}
+validations.py root INFO:188 	date column updated_timestamp value is 2019-12-31T22:00:00.000
+validations.py root INFO:191 	After formatting date value 2019-12-31T22:00:00.000
+validations.py root INFO:193 	Date Formate matched for column updated_timestamp
+validations.py root INFO:313 	Completed Validation for silver
+validations.py root INFO:310 	Running Validation for  gold
+validations.py root INFO:115 	Input Query is: select * from delta_gold.extrahours gold left join (select DISTINCT date(startDateTime) as extra_hours_date,locationUuid,departmentId from delta_bronze.prp_extrahoursapi_extrahours where MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27;) brnz on  gold.extra_hours_date=brnz.extra_hours_date and gold.Location_UUID=brnz.locationUuid and gold.Skills_ID= brnz.departmentId where brnz.extra_hours_date is not null
+validations.py root INFO:121 	Running for Input Query select * from delta_gold.extrahours gold left join (select DISTINCT date(startDateTime) as extra_hours_date,locationUuid,departmentId from delta_bronze.prp_extrahoursapi_extrahours where MD_PIPELINE_RUN_ID = &#x27;c2d89c3a-4d54-11ee-bd34-bcf4d42f600c&#x27;) brnz on  gold.extra_hours_date=brnz.extra_hours_date and gold.Location_UUID=brnz.locationUuid and gold.Skills_ID= brnz.departmentId where brnz.extra_hours_date is not null
+validations.py root ERROR:157 	Error while comparing data Values for column &#x27;Department_Name&#x27; are different.
+Traceback (most recent call last):
+  File &quot;C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\lib\site-packages\polars\testing\asserts.py&quot;, line 110, in assert_frame_equal
+    _assert_series_inner(
+  File &quot;C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\lib\site-packages\polars\testing\asserts.py&quot;, line 322, in _assert_series_inner
+    raise_assert_detail(
+  File &quot;C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\lib\site-packages\polars\testing\asserts.py&quot;, line 500, in raise_assert_detail
+    raise AssertionError(error_msg) from exc
+AssertionError: Series are different.
+
+null_count is not equal
+[left]:  0
+[right]: 4        
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File &quot;C:\Users\INE12405137\PycharmProjects\autmation_framework\pdp_automation_framework\validations.py&quot;, line 150, in data_validation
+    if pl.testing.assert_frame_equal(source_data, adb_data_df) is None:
+  File &quot;C:\Users\INE12405137\PycharmProjects\pdp_automation_framework\venv\lib\site-packages\polars\testing\asserts.py&quot;, line 121, in assert_frame_equal
+    raise AssertionError(msg) from exc
+AssertionError: Values for column &#x27;Department_Name&#x27; are different.
+validations.py root INFO:313 	Completed Validation for gold
+pdp_framework.py root ERROR:33 Non zero status returned from task &lt;function validations at 0x000002731603B4C0&gt; 
+pdp_framework.py root INFO:58 	TASK VALIDATIONS  COMPLETED<br/></div></td></tr></tbody></table></body></html>

@@ -1,0 +1,35 @@
+{
+  "mock_data_config": {
+    "dimension_data_folder": "sample_data",
+    "dimension_data": [{"name":"location","columns":["storeNumber","storeName","locationUUID"],"renamed_map":{"storeNumber":"Store_Number","storeName":"Store_Name","locationUUID":"Location_UUID"},"records":100},
+                        {"name":"skills","columns":["description","skillCode"],"renamed_map":{"description":"Department_Name","skillCode":"Skills_ID"},"records":50 }
+    ],
+    "date_dimension_columns": [{"column":"Extra_Hours_date", "start":"2022-09-17", "end": "2023-04-02", "input_format":"%Y-%m-%d","output_format":"%Y-%m-%dT%H:%M:%S.0000000","step":"1d"}],
+    "random_int_columns": [{"column":"Published_Shifts","start":1, "end": 5,"step":1 },
+                               {"column":"Unpublished_manually_assigned_shifts","start":0, "end": 1,"step":1}
+    ],
+    "random_date_columns": null,
+    "load_date_columns": [{"column":"MD_CREATED_DTM", "load_date":null,"format":"%Y-%m-%dT%H:%M:%S.0000000"}],
+    "transformation": "extrahours_serve_data",
+    "output_schema":  ["Location_UUID", "Store_Number","Store_Name", "Skills_ID","Department_Name",
+                       "Extra_Hours_date", "Published_Shifts","Claimed_Shifts",
+                       "Unclaimed_shifts", "Published_unclaimed_manually_assigned_shifts",
+                       "Unpublished_manually_assigned_shifts","MD_CREATED_DTM"
+    ],
+    "output_count": 150000,
+    "output_format": "csv",
+    "utf8_encoding":true,
+    "output_folder": "output_data",
+    "output_file": "serve_data_13_july.csv",
+    "print_final_df_sample":true,
+    "drop_duplicates": {"column":["Location_UUID", "Skills_ID","Extra_Hours_date"]}
+  },
+  "upload_config": {
+    "source_folder": "output_data",
+    "source_file": "serve_data_13_july.csv",
+    "chunk_size_mb": 4,
+    "blob_file_path": "/landingzone/testingfiles/serve_data_13_july.csv",
+    "container_name": "pdrpdata"
+  }
+
+}

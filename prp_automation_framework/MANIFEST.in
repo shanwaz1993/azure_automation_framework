@@ -1,0 +1,6 @@
+include ./*.py
+include ./*.ini
+include config/*.json
+include sample_data/*.csv
+include tests/*.py
+include utils/*.py

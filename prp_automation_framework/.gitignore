@@ -1,0 +1,46 @@
+/Resources/
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore environment-specific settings
+env/
+venv/
+.env
+
+# Ignore log files
+*.log
+
+# Ignore database files
+*.db
+
+# Ignore temporary files and directories
+*.tmp
+temp/
+tmp/
+
+# Ignore IDE settings
+.idea/
+.vscode/
+
+# Ignore distribution files
+dist/
+build/
+*.egg-info/
+
+# Ignore Output data
+output_data/*
+# exception to the rule
+!output_data/.gitkeep
+test_report/*
+# exception to the rule
+!test_report/.gitkeep
+logs/*
+# exception to the rule
+!logs/.gitkeep
+# Ignoe logs and reports inside test
+test/logs/*
+test/test_report/*
+# Ignore Env Config
+env_config.json
+

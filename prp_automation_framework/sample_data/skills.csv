@@ -1,0 +1,76 @@
+skill_id,skillid,skillName,skillCode,SkillCategory
+1,3272c9e2-065a-471c-8e75-1e693849d6ae,Customer Service Desk,1000117,Scheduled Department
+2,ef08dbef-a47f-4cc4-801d-e9d5a5cc9e2e,Delivery Admin,1000190,Scheduled Department
+3,e3fa3afa-1472-40ef-a8fb-ba06389dae04,Warehouse/Backdoor,1000149,Scheduled Department
+4,1e6a5bdb-4617-476c-a675-1be75a3edd05,General Merchandise,1000127,Scheduled Department
+5,74b20e33-fe47-4a3c-a8fa-619baeef1c91,Frozen Foods,1000126,Scheduled Department
+6,7994860c-9419-4a1a-aadc-e7804ee4fb63,UFC Replenishment,1000201,Scheduled Department
+7,7ed79c8f-c600-4567-acea-ef0c1e02c744,Travel Money,1000155,Scheduled Department
+8,d3c3c7c6-982c-453f-9db7-c72b9ec929d1,C&C Assistant,1000120,Scheduled Department
+9,053294ce-5416-42b4-b2a1-2b2051773a03,Metro Shift Leader,1000183,Scheduled Department
+10,d18dad7e-f8bc-4e5a-847a-f767adbf0939,Tesco Colleague - Pharmacy Counter,1000194,Scheduled Department
+11,2df8931e-aaff-402d-8bd4-23d8b996fbe4,Phone Shop,1000150,Scheduled Department
+12,85735266-e3ba-42fd-a9d9-7b19d5ce7ff7,Customer Delivery Driver Training,1000184,Scheduled Department
+13,e93fcd31-7ab0-4984-8887-fc8bb87fa731,Colleague Administration,1000179,Scheduled Department
+14,de526722-f59b-4e5e-98d5-de53c11dd051,Clothing,1000110,Scheduled Department
+15,85efc57c-8d68-4666-949a-f98a7cf8e35c,Cafe/Food to Go,1000153,Scheduled Department
+17,daf03edb-8ee0-4438-968b-e19ec94f97d7,C&C Delivery Assistant,1000121,Scheduled Department
+18,0fb2e22d-2429-4cc9-898b-9e09eeff392b,Counter Pizza,1000157,Scheduled Department
+19,ca66d5ca-e825-468b-b358-ebdfadf41492,Health & Beauty,1000128,Scheduled Department
+20,b80af4b8-b299-49aa-8caf-502f08b3a231,Dairy Cabinet,1000118,Scheduled Department
+21,e5d697bd-fed4-4865-af20-1ebbae1fa29b,News & Mags,1000132,Scheduled Department
+22,5b1a0ec4-59da-4698-b261-0de1da09e4fd,Counter Meat,1000115,Scheduled Department
+23,05ab6713-7439-4eef-bfb0-1613f6b3db60,Training,1000167,Scheduled Department
+24,b200b8dd-8f5c-43ee-b47c-cb8f661e8032,Chilled Personal Shopper,1000188,Scheduled Department
+25,449b5db2-3013-460a-8acf-aabad29c5a6e,Post Office,1000138,Scheduled Department
+26,81026604-5454-4da9-b48f-fe3b86675d84,Self Service Attendants,1000107,Scheduled Department
+27,6d9023c3-ff3c-4571-b377-054edf85d6fa,UFC Picking,1000199,Scheduled Department
+28,aac68880-901b-4966-9e77-3cd7195562f7,Trolleys,1000147,Scheduled Department
+29,6441ece9-bff6-4aa6-824f-299c9f665114,Express Shopfloor,1000176,Scheduled Department
+30,1ec4cf5a-d5ee-4399-bd14-d9bc3513b107,Loader,1000191,Scheduled Department
+31,314143c9-52e4-4875-8a70-416c4bd62d92,Community Champion,1000159,Scheduled Department
+32,d6de0aca-e77e-4410-a667-75888fc6c4dc,Urban Fulfilment Centre,1000185,Scheduled Department
+33,ba6769b0-f4b1-4ca5-a579-76a0ae132adb,Bakery Support,1000169,Scheduled Department
+34,5855a627-a7eb-424a-a1e9-9204099e5c62,"Beers, Wines & Spirits",1000102,Scheduled Department
+35,f42aac31-d058-44c7-861e-59925eb1289d,Grocery Stock Control,1000144,Scheduled Department
+36,f10ca280-cb52-4ebc-932d-d305e5083f37,Counter Deli,1000112,Scheduled Department
+37,caef3666-eaae-4717-9e52-5a7514cb9274,Personal Shopper,1000123,Scheduled Department
+38,a43705d8-a2e7-438b-a676-ef610ce20d6e,Produce,1000140,Scheduled Department
+39,31abad01-333c-4fe3-9ba6-f0986804f7d8,Pharmacy Accuracy Technician,1000197,Scheduled Department
+40,933254f9-9e45-469a-9289-36814d194f52,Bakery Skilled,1000168,Scheduled Department
+41,5d2ca534-3a61-4b41-91f2-36b8337f9d68,Cleaning,1000156,Scheduled Department
+42,c5073eb7-0f32-4380-af5b-554c2effd54b,UFC Backroom,1000202,Scheduled Department
+43,12237ada-7b9e-4161-9458-3935f7675e28,Agency,1000180,Scheduled Department
+44,9b2f24fb-a8f2-4ca8-ab12-3a5aa6eed133,UFC Stock Control,1000200,Scheduled Department
+45,00651200-e735-484f-baec-2a84f0c5e28c,Express Warehouse/Backdoor,1000175,Scheduled Department
+46,f6943270-cfdc-445f-b75f-4af1c6982f5e,Management,1000164,Scheduled Department
+47,d8382ceb-69e7-4d94-8173-fc14f2456ff1,Laundry,1000130,Scheduled Department
+48,80f48c06-1eef-4266-82b9-950126f85735,System Flow Controller,1000189,Scheduled Department
+49,39b0e32a-e94a-4376-8eb8-856d0dd2442b,Unallocated,1000193,Scheduled Department
+50,4616495c-18a3-4767-9804-442151327e2a,Combined CSD/Kiosk,1000116,Scheduled Department
+51,d94d6f47-1730-474a-82f6-877576a341dd,UFC Delivery Assistant,1000203,Scheduled Department
+52,76c0997b-7736-481d-8011-fa23c92b82ba,Checkout Operators,1000104,Scheduled Department
+53,0a0d7fc2-2d1e-42b1-a4ee-1221ad02c472,Counter Hot Chicken,1000114,Scheduled Department
+54,ee0531cf-99a5-49e5-b404-e96a2ce7980d,Service Team Support,1000192,Scheduled Department
+55,ec78dc5b-7577-4fc6-9cfd-381e70e6b4db,Security,1000151,Scheduled Department
+56,4f26935b-b8ce-4c66-b2b9-22a26b44a9f3,Counter Fish,1000113,Scheduled Department
+57,de87b7f4-f9be-47e1-877f-0d58bad3cd69,Pharmacy Technician,1000196,Scheduled Department
+58,cebe750b-3bda-4db4-9ea5-8b470825dd33,Scan As You Shop,1000106,Scheduled Department
+59,0845dc45-fcd3-4053-bb9f-8a9c6e13631b,Dry Grocery,1000124,Scheduled Department
+60,3f5f5ca0-7436-49a5-aa66-4e83a342b00b,Pharmacy,1000136,Scheduled Department
+61,0b3a6eae-7983-416e-af07-219534c8cfea,Bread & Cake,1000103,Scheduled Department
+62,65042330-2c5a-40ec-a180-2dd4cb19e2c6,Fresh Food Stock Control,1000143,Scheduled Department
+63,e29cd9ff-66e4-491a-82fa-9afa52b582b0,Tesco Colleague - Pharmacy Dispenser,1000195,Scheduled Department
+64,2c2c2b44-a13d-4080-b9d1-10ef30aa85e7,Cash Office,1000108,Scheduled Department
+65,fcd4667e-4c08-41ae-ab94-86a96e3f4094,Price Integrity,1000139,Scheduled Department
+66,ecc6c380-e900-4f9c-8db2-9ba1a4facedc,Cigarette Kiosk/Lottery,1000109,Scheduled Department
+67,db9f6238-a887-4611-bee4-308528b8927c,Off Till Activity,1000105,Scheduled Department
+68,079921eb-f846-49c1-9731-1e1f9b3e9ccb,Express Shift Leader,1000170,Scheduled Department
+69,5c52f21e-8408-4e7b-9eac-96a1cb63a7b7,Wages/Resource Assistants,1000148,Scheduled Department
+70,83637422-7109-4786-830f-06e4f881491d,Tesco Colleague - Pharmacy,1000198,Scheduled Department
+71,5fdd30dd-71f6-42a7-8898-ee146292f755,Horticulture,1000129,Scheduled Department
+72,a6a02bd5-044a-49df-85f3-947835adde7d,Store Team,1000186,Scheduled Department
+73,db32946f-3008-4fca-8ba7-87d5d8e73b75,Non Food Stock Control,1000145,Scheduled Department
+74,f2959431-3d21-4a90-81f9-9d26934985ed,Customer Delivery Driver,1000122,Scheduled Department
+75,eddc7e02-c090-4ef7-a257-cd124b49b265,Ambient Personal Shopper,1000187,Scheduled Department
+76,7986313b-8172-4de8-b687-65ace38de3c8,Petrol Filling Station,1000135,Scheduled Department

@@ -1,0 +1,119 @@
+{
+  "pdp_flow": ["data_generator","upload_to_azure","trigger_adf_pipeline", "validations"],
+  "file": null,
+  "html_report": null,
+  "data_generator": {
+    "file": null,
+    "dimension_data_folder": "sample_data",
+    "dimension_data": [{"name":"location","columns":["locationUUID","StoreNumber","LocationInternalname"],"renamed_map":{"locationUUID":"locationUuid","StoreNumber": "Store_Number","LocationInternalname": "Store_Name"},"records":50},
+                        {"name":"skills","columns":["skillCode","skillName"],"renamed_map":{"skillCode":"departmentId","skillName": "Department_Name"},"records":50},
+                        {"name":"colleague","columns":["colleagueUUID"],"renamed_map":{"colleagueUUID":"updatedBy"},"records":50}
+    ],
+    "date_dimension_columns": null,
+    "int_dimension_columns": null,
+    "random_int_columns": [{"column":"extraHourId","start":200001, "end": 300000,"step":1 }],
+    "random_date_columns": [{"column":"startDateTime", "start":"2020-01-01", "end": "2020-01-30", "input_format":"%Y-%m-%d","output_format":"%Y-%m-%dT%H:%M:%S.000","step":"19h"}],
+    "random_str_columns": [{"column":"status", "sample": ["created","published","claimed","assigned","deleted"]}],
+    "null_columns": null,
+    "load_date_columns": null,
+    "transformation": "extrahours_api",
+    "kpi_calculation": "extrahours_kpi_calculation",
+    "output_schema":  ["extraHourId", "status","locationUuid", "departmentId","assignedTo",
+                       "startDateTime", "endDateTime","updatedTimestamp",
+                       "updatedBy", "createdTimestamp", "publishedTimestamp"
+    ],
+    "output_count": 100,
+    "output_format": "csv",
+    "output_folder": "output_data",
+    "utf8_encoding": true,
+    "print_final_df_sample": false,
+    "drop_duplicates": {"column":["extraHourId", "updatedTimestamp"]}
+  },
+  "upload_to_azure": {
+    "file": null,
+    "source_folder": "output_data",
+    "chunk_size_mb": 4,
+    "blob_folder_raw": "/landingzone/raw",
+    "blob_folder_encrypted": "/landingzone/rawencrypted",
+    "blob_folder_process": "/landingzone/processed/PRP/ExtraHoursAPI/ExtraHours",
+    "blob_folder_error": "/landingzone/error",
+    "container_name": "pdrpdata",
+    "storage_account_name": "eundev186prpsatf"
+  },
+  "trigger_adf_pipeline": {
+    "factory_name": "prp-datafactory-ppe",
+    "resource_group_name": "186-DEV-EUN-PeopleDataReportingPlatform",
+    "run_pipelines": [{"run_id_key": "bronze_silver_run_id",
+                         "pipeline_name":"pl_master_orchestrator_r1dm",
+                         "parameters": {"DataSource": "ExtraHours",
+                                      "PlatformName": "PRP",
+                                      "SourceName": "ExtraHoursAPI",
+                                      "DatasetName": "ExtraHours"
+                         },
+                        "check_status_freq": 1},
+                       {"run_id_key": "gold_run_id",
+                         "pipeline_name":"pl_master_gold_with_period",
+                         "parameters": {"goldDriverName": "GoldDriver",
+                                      "platformName": "PRP",
+                                      "sourceName": "ExtraHoursAPI",
+                                      "datasetName": "ExtraHours",
+                                      "StartDate": "2020-01-01",
+                                      "EndDate":"2020-01-30",
+                                      "KPIType": "ExtraHours",
+                                      "pipelineRunId": "no need to pass"
+                         },
+                         "check_status_freq": 1}]
+
+  },
+  "validations": {
+    "file": null,
+    "input_count": null,
+    "bronze_silver_run_id": null,
+    "gold_run_id": null,
+    "validation_flow": ["bronze","silver","gold"],
+    "bronze": [{"db_table": "delta_bronze.prp_extrahoursapi_extrahours",
+                          "where": "MD_PIPELINE_RUN_ID = '{bronze_silver_run_id}'",
+                          "type": [
+                            {"name":"count","query": null},
+                            { "name":"data",
+                              "query":null,
+                              "file": "{file}","source_path" : null,
+                              "folder": "output_data","header":true ,
+                              "select_cols": ["extraHourId","status","locationUuid","departmentId","assignedTo","startDateTime",
+                                            "endDateTime","updatedTimestamp","updatedBy","createdTimestamp","publishedTimestamp"],
+                              "sort_column":["extraHourId", "updatedTimestamp"]},
+                            {"name": "date_format","date_columns": ["updatedTimestamp"],"format": "%Y-%m-%dT%H:%M:%S.%f"},
+                            {"name": "cols_exist","columns": ["MD_CREATED_DTM","MD_CHANGED_DTM","MD_CREATED_BY",
+                              "MD_MODIFIED_BY","MD_SOURCE_NAME","MD_PLATFORM_NAME","MD_BATCH_ID",
+                              "MD_KEY_HASH","MD_KEY_HASH","MD_KEY_HASH","MD_PIPELINE_NAME","MD_PIPELINE_NAME", "MD_LOAD_DT"]}]}],
+    "silver": [{"db_table": "delta_silver.extrahours",
+                          "where": "MD_PIPELINE_RUN_ID = '{bronze_silver_run_id}'",
+                          "type": [
+                            {"name":"count","query": null},
+                            {"name":"duplicate", "cols": ["extrahour_id", "updated_timestamp"]},
+                            {"name": "date_format","date_columns": ["updated_timestamp"],"format": "%Y-%m-%dT%H:%M:%S.%f"}
+                          ]}],
+    "gold": [{"db_table": "delta_gold.extrahours",
+                         "where": "True=True",
+                         "type": [
+                           {"name":"data",
+                             "query": "select * from delta_gold.extrahours gold left join (select DISTINCT date(startDateTime) as extra_hours_date,locationUuid,departmentId from delta_bronze.prp_extrahoursapi_extrahours where MD_PIPELINE_RUN_ID = '{bronze_silver_run_id}') brnz on  gold.extra_hours_date=brnz.extra_hours_date and gold.Location_UUID=brnz.locationUuid and gold.Skills_ID= brnz.departmentId where brnz.extra_hours_date is not null",
+                             "file": "kpi_{file}", "source_path": null,
+                             "folder": "output_data", "header": true,
+                             "select_cols": ["Location_UUID",
+                                             "Store_Number",
+                                             "Store_Name",
+                                             "Skills_ID",
+                                             "Department_Name",
+                                             "Extra_Hours_date",
+                                             "Published_Shifts",
+                                             "Claimed_Shifts",
+                                             "Unclaimed_shifts",
+                                             "Published_unclaimed_manually_assigned_shifts",
+                                             "Unpublished_manually_assigned_shifts"],
+                             "sort_column": ["Location_UUID", "Skills_ID", "Extra_Hours_date"]
+                           }
+                         ]}]
+
+  }
+}
